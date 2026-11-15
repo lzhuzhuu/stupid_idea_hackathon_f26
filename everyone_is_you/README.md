@@ -40,9 +40,8 @@ everyone is you. Cups become bubble tea, bottles juice boxes, wine glasses baby 
 
 | What you see | Fix |
 |---|---|
-| Nothing happens, no message at the top | Refresh the page. |
+| Nothing happens, no message at the top | Check the switch is on (the icon shows **ON**), then refresh the page. |
 | *Potato Upload was reloaded: refresh this page* | Refresh the page. |
-| *Potato Upload is off* | Turn the switch on in the toolbar popup. |
 | *server offline, original photo sent* | Start the server (step 1), and check the popup is set to **Everyone Is You**. |
 | *replaced: …* without *(with your face)* | The camera didn't see a face: face the MacBook camera, more light. |
 
@@ -74,4 +73,5 @@ First run downloads the swap model (~280 MB, to `everyone_is_you/models/`) and i
 `buffalo_l` (~280 MB, to `~/.insightface/`). macOS asks once to let your terminal app use
 the camera: allow it.
 
-The insightface models are for non-commercial research use only.
+The insightface models are for non-commercial research use only. Stickers are
+[Noto Emoji](https://github.com/googlefonts/noto-emoji) (Apache 2.0).

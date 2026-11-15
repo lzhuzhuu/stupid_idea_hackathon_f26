@@ -1,6 +1,7 @@
 """Local potato server: the Chrome extension sends uploaded images here when the popup is set to Potato.
 
-Runs on port 8766, so it can run next to everyone_is_you/ (port 8765).
+Every face in the photo (just the face) becomes a potato wearing that person's own eyes, nose
+and mouth. Runs on port 8766, so it can run next to everyone_is_you/ (port 8765).
 """
 import base64
 import io
@@ -20,67 +21,49 @@ HERE = Path(__file__).parent
 ASSETS = HERE / "assets"
 OUTPUT = HERE / "output"
 
-# Every face gets this sticker, like a face filter.
-FACE_STICKER = "potato.png"
-FACE_SIZE = 0.6  # radius of the potato's round middle, relative to the face width
-# COCO class name -> sticker that covers the whole object. Edit this to change what becomes what.
-REPLACEMENTS = {
-    "cup": "bubble_tea.png",
-    "bottle": "juice_box.png",
-    "wine glass": "baby_bottle.png",
-}
-CONFIDENCE = 0.35
-POSE_CONFIDENCE = 0.25  # lower than objects: half-hidden people in group selfies still count
+FACE_STICKER = "potato.png"  # or "potato_sprouts.png"
+POSE_CONFIDENCE = 0.25  # low: half-hidden people in group selfies still count
 POSE_SIZE = 960  # bigger than YOLO's default 640, so small faces in group photos are found
 KEYPOINT_CONFIDENCE = 0.4
-PADDING = 0.15  # grow each object box so the sticker fully covers it
 
 app = Flask(__name__)
-model = YOLO(HERE / "yolo11n.pt")  # both models are downloaded (~6 MB each) on first run
-pose_model = YOLO(HERE / "yolo11n-pose.pt")
-stickers = {name: Image.open(ASSETS / file).convert("RGBA") for name, file in REPLACEMENTS.items()}
+pose_model = YOLO(HERE / "yolo11n-pose.pt")  # downloaded (~6 MB) on first run
 potato = Image.open(ASSETS / FACE_STICKER).convert("RGBA")
-potato_spot = face.face_spot(potato)
-lock = threading.Lock()  # one photo at a time: the webcam and the models don't share well
+lock = threading.Lock()  # one photo at a time: the models don't share well
 OUTPUT.mkdir(exist_ok=True)
 
 
-def potatoify(img: Image.Image, parts: dict[str, Image.Image] | None) -> tuple[Image.Image, list[str]]:
+def potatoify(img: Image.Image) -> tuple[Image.Image, int]:
+    """The photo with a potato on every face, and how many faces that was."""
     img = ImageOps.exif_transpose(img).convert("RGB")
-    objects, faces = find_objects(img), find_faces(img)
-    for (x1, y1, x2, y2), name in objects:
-        sticker = stickers[name].resize((max(1, round(x2 - x1)), max(1, round(y2 - y1))))
-        if parts:
-            face.stick_on(sticker, parts)
-        img.paste(sticker, (round(x1), round(y1)), sticker)
-    for x, y, width, tilt in faces:
-        put_potato(img, x, y, width, tilt, parts)
-    return img, [name for _, name in objects] + ["face"] * len(faces)
+    faces = find_faces(img)
+    # Make every potato before pasting any: a potato can cover the edge of the next face.
+    spud = face.tone_like(potato, img)
+    potatoes = [face.potato_face(img, f, spud) for f in faces]
+    # Smallest first: bigger faces are usually nearer the camera, so their potatoes go on top.
+    for _, (layer, corner) in sorted(zip(faces, potatoes), key=lambda pair: pair[0].width):
+        img.paste(layer, corner, layer)
+    return img, len(faces)
 
 
-def find_objects(img: Image.Image) -> list[tuple[tuple[float, ...], str]]:
-    result = model(img, conf=CONFIDENCE, verbose=False)[0]
-    hits = []
-    for (x1, y1, x2, y2), cls in zip(result.boxes.xyxy.tolist(), result.boxes.cls.tolist()):
-        if result.names[int(cls)] in REPLACEMENTS:
-            pad_w, pad_h = (x2 - x1) * PADDING, (y2 - y1) * PADDING
-            hits.append(((x1 - pad_w, y1 - pad_h, x2 + pad_w, y2 + pad_h), result.names[int(cls)]))
-    # Biggest first, so smaller things on top stay visible.
-    hits.sort(key=lambda hit: (hit[0][2] - hit[0][0]) * (hit[0][3] - hit[0][1]), reverse=True)
-    return hits
-
-
-def find_faces(img: Image.Image) -> list[tuple[float, float, float, float]]:
+def find_faces(img: Image.Image) -> list[face.Face]:
+    """Every face in the photo, checked by MediaPipe."""
     # The pose model is unreliable on upside-down people (lying down, handstands), so it
     # looks twice: upright faces in the photo as-is, upside-down ones in the photo flipped.
     w, h = img.size
     upright = [f for f in face_points(img) if abs(f[3]) <= 90]
     flipped = [(w - x, h - y, width, tilt + 180)
                for x, y, width, tilt in face_points(img.rotate(180)) if abs(tilt) <= 90]
-    # Biggest first; skip a face whose middle is inside one already kept (same head found twice).
+    # It also misses some faces outright (heads half behind someone): MediaPipe looks too.
+    guesses = upright + flipped + face.more_guesses(img)
+    # Guesses can be upside down, merge two heads, or land on an arm: MediaPipe checks each
+    # one, fixes where it is and which way up, or drops it.
+    checked = [found for guess in guesses if (found := face.look_closer(img, *guess))]
+    # The same head is found several times. Keep one: the right way up if any version of it is
+    # (MediaPipe now and then reads a face upside down), else the biggest.
     faces = []
-    for f in sorted(upright + flipped, key=lambda f: f[2], reverse=True):
-        if all(math.dist(f[:2], kept[:2]) > kept[2] / 2 for kept in faces):
+    for f in sorted(checked, key=lambda f: (abs(f.tilt) > 90, -f.width)):
+        if all(math.dist((f.x, f.y), (kept.x, kept.y)) > kept.width / 2 for kept in faces):
             faces.append(f)
     return faces
 
@@ -113,37 +96,19 @@ def face_points(img: Image.Image) -> list[tuple[float, float, float, float]]:
     return faces
 
 
-def put_potato(img: Image.Image, x: float, y: float, width: float, tilt: float,
-               parts: dict[str, Image.Image] | None) -> None:
-    """Paste a potato so its round middle sits on the face at (x, y), turned with the head."""
-    spot_x, spot_y, spot_r = potato_spot
-    scale = FACE_SIZE * width / spot_r
-    sticker = potato.resize((max(1, round(potato.width * scale)), max(1, round(potato.height * scale))))
-    if parts:
-        face.stick_on(sticker, parts)
-    # Where the potato's middle ends up after rotating around the sticker's center.
-    dx, dy = spot_x * scale - sticker.width / 2, spot_y * scale - sticker.height / 2
-    sticker = sticker.rotate(-tilt, resample=Image.Resampling.BICUBIC, expand=True)
-    t = math.radians(tilt)
-    ax = sticker.width / 2 + dx * math.cos(t) - dy * math.sin(t)
-    ay = sticker.height / 2 + dx * math.sin(t) + dy * math.cos(t)
-    img.paste(sticker, (round(x - ax), round(y - ay)), sticker)
-
-
 @app.post("/potatoify")
 def potatoify_endpoint():
     _, b64 = request.get_json()["image"].split(",", 1)
     with lock:
-        parts = face.current_face(OUTPUT)
-        img, replaced = potatoify(Image.open(io.BytesIO(base64.b64decode(b64))), parts)
+        img, faces = potatoify(Image.open(io.BytesIO(base64.b64decode(b64))))
     img.save(OUTPUT / f"{datetime.now():%Y%m%d-%H%M%S-%f}_result.jpg", quality=92)
     out = io.BytesIO()
     img.save(out, "JPEG", quality=92)
-    print(f"replaced: {replaced}")
+    print(f"potatoes: {faces}")
     return jsonify(
         image="data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode(),
-        replaced=replaced,
-        face=parts is not None,
+        replaced=["face"] * faces,
+        face=False,  # the extension says "(with your face)" when true; no webcam here
     )
 
 

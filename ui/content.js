@@ -27,8 +27,7 @@ window.addEventListener("input", (e) => {
 window.addEventListener("change", async (e) => {
   const input = e.target;
   if (!enabled && !replaying && isImageInput(input)) {
-    console.log("[potato] saw an image upload, but the switch is off");
-    toast("Potato Upload is off: turn it on from the toolbar icon");
+    console.log("[potato] saw an image upload, but the switch is off"); // console only: off means a normal upload
     return;
   }
   if (!shouldIntercept(input)) return;
@@ -186,7 +185,8 @@ function toast(text) {
   const el = Object.assign(document.createElement("div"), { textContent: text });
   el.dataset.potatoToast = "";
   el.style.cssText =
-    "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;" +
+    // pointer-events:none: clicks go through to the page (it sits over Send buttons and menus)
+    "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;" +
     "background:#8b5a2b;color:#fff;padding:10px 18px;border-radius:999px;" +
     "font:600 14px system-ui;box-shadow:0 4px 12px rgba(0,0,0,.3)";
   document.body.append(el);
