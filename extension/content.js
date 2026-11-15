@@ -3,9 +3,16 @@
 let replaying = false;
 let busy = 0;
 let heldForm = null;
+let enabled = false; // the popup's switch; off until the user turns it on
+
+chrome.storage.local.get("enabled").then((saved) => { enabled = saved.enabled ?? false; });
+chrome.storage.onChanged.addListener((changes) => {
+  if ("enabled" in changes) enabled = changes.enabled.newValue;
+});
 
 function shouldIntercept(target) {
   return (
+    enabled &&
     !replaying &&
     target instanceof HTMLInputElement &&
     target.type === "file" &&

@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Potato Upload",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Swaps every face in the photos you upload with yours.",
+  "action": { "default_popup": "popup.html", "default_title": "Potato Upload" },
+  "permissions": ["storage"],
   "background": { "service_worker": "background.js" },
   "host_permissions": ["http://127.0.0.1:8765/*"],
   "content_scripts": [
