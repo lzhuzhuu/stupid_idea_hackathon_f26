@@ -15,15 +15,9 @@ chrome.storage.onChanged.addListener((changes) => {
 
 const hasImages = (files) => files.some((f) => f.type.startsWith("image/"));
 
-function shouldIntercept(target) {
-  return (
-    enabled &&
-    !replaying &&
-    target instanceof HTMLInputElement &&
-    target.type === "file" &&
-    hasImages([...(target.files ?? [])])
-  );
-}
+const isImageInput = (target) =>
+  target instanceof HTMLInputElement && target.type === "file" && hasImages([...(target.files ?? [])]);
+const shouldIntercept = (target) => enabled && !replaying && isImageInput(target);
 
 // The page gets "input" right before "change"; hold both back and replay them later.
 window.addEventListener("input", (e) => {
@@ -32,6 +26,11 @@ window.addEventListener("input", (e) => {
 
 window.addEventListener("change", async (e) => {
   const input = e.target;
+  if (!enabled && !replaying && isImageInput(input)) {
+    console.log("[potato] saw an image upload, but the switch is off");
+    toast("Potato Upload is off: turn it on from the toolbar icon");
+    return;
+  }
   if (!shouldIntercept(input)) return;
   e.stopImmediatePropagation();
   input.files = (await swapped([...input.files], "file picker")).files;
@@ -71,11 +70,37 @@ async function swapped(files, how) {
   toast("swapping faces…");
   busy++;
   try {
+    // The originals go to the popup (opened for the user), never to the page.
+    const items = await Promise.all(files.map(async (f) => ({ original: await thumbnail(f), swapped: null })));
+    await saveUpload(items, "swapping");
+    chrome.runtime.sendMessage({ type: "showPopup" }).catch(() => {});
+
+    const results = await Promise.all(files.map(potatoify));
+    for (const [i, result] of results.entries()) {
+      if (result !== files[i]) items[i].swapped = await thumbnail(result);
+    }
+    await saveUpload(items, "done");
+
     const dt = new DataTransfer();
-    (await Promise.all(files.map(potatoify))).forEach((f) => dt.items.add(f));
+    results.forEach((f) => dt.items.add(f));
     return dt;
   } finally {
     busy--;
+  }
+}
+
+function saveUpload(items, status) {
+  return chrome.storage.local.set({ lastUpload: { site: location.host, at: Date.now(), status, items } });
+}
+
+async function thumbnail(file) {
+  try {
+    const bitmap = await createImageBitmap(file, { resizeWidth: 320, resizeQuality: "medium" });
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0);
+    return await readAsDataURL(await canvas.convertToBlob({ type: "image/jpeg", quality: 0.8 }));
+  } catch {
+    return null; // e.g. HEIC, which Chrome can't decode
   }
 }
 

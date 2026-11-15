@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <title>Potato Upload</title>
 <style>
-  body { margin: 0; padding: 14px 16px; width: 230px; font: 14px system-ui, sans-serif; }
+  body { margin: 0; padding: 14px 16px; width: 300px; font: 14px system-ui, sans-serif; }
   label { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
   input {
     appearance: none; position: relative; flex: none; width: 40px; height: 22px; margin: 0;
@@ -15,7 +15,20 @@
   input:checked { background: #1a73e8; }
   input:checked::after { left: 20px; }
   p { margin: 8px 0 0; color: #666; font-size: 12px; }
+  section { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ddd; }
+  h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #444; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  figure { margin: 0; }
+  figure img, figure div {
+    display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; background: #eee;
+  }
+  figure div { display: grid; place-items: center; color: #888; font-size: 12px; }
+  figcaption { margin-top: 4px; color: #666; font-size: 11px; }
 </style>
 <label>Swap faces on upload <input type="checkbox" id="enabled"></label>
 <p id="status"></p>
+<section id="last" hidden>
+  <h2 id="last-title"></h2>
+  <div id="pairs"></div>
+</section>
 <script src="popup.js"></script>

@@ -3,6 +3,10 @@
 const SERVER = "http://127.0.0.1:8765/potatoify";
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === "showPopup") {
+    chrome.action.openPopup().catch(() => {}); // fails if the window isn't focused; no big deal
+    return;
+  }
   if (msg.type !== "potatoify") return;
   fetch(SERVER, {
     method: "POST",
