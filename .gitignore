@@ -223,7 +223,9 @@ __marimo__/
 *.pt
 
 # Generated photos (contain webcam shots of us) and downloaded face model
-server/output/
-server/models/
+everyone_is_you/output/
+everyone_is_you/models/
+potato/output/
+potato/models/
 
 .DS_Store

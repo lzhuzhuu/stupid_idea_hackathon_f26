@@ -1,11 +1,16 @@
 const box = document.getElementById("enabled");
 const status = document.getElementById("status");
+const featureRadios = [...document.querySelectorAll("input[name=feature]")];
+const ON_TEXT = {
+  everyone: "On: photos you upload get your face. Needs everyone_is_you/app.py running.",
+  potato: "On: faces in photos you upload become potatoes. Needs potato/app.py running.",
+};
+let feature = "everyone";
 
 function show(enabled) {
   box.checked = enabled;
-  status.textContent = enabled
-    ? "On: photos you upload get your face."
-    : "Off: uploads go through untouched.";
+  featureRadios.forEach((radio) => (radio.checked = radio.value === feature));
+  status.textContent = enabled ? ON_TEXT[feature] : "Off: uploads go through untouched.";
 }
 
 // The last intercepted upload: what was picked, and what the page got instead.
@@ -31,7 +36,8 @@ function figure(src, caption, placeholder) {
   return fig;
 }
 
-chrome.storage.local.get(["enabled", "lastUpload"]).then(({ enabled = false, lastUpload }) => {
+chrome.storage.local.get(["enabled", "feature", "lastUpload"]).then(({ enabled = false, feature: saved, lastUpload }) => {
+  feature = saved ?? "everyone";
   show(enabled);
   showUpload(lastUpload);
 });
@@ -42,3 +48,8 @@ box.addEventListener("change", () => {
   chrome.storage.local.set({ enabled: box.checked });
   show(box.checked);
 });
+featureRadios.forEach((radio) => radio.addEventListener("change", () => {
+  feature = radio.value;
+  chrome.storage.local.set({ feature });
+  show(box.checked);
+}));
