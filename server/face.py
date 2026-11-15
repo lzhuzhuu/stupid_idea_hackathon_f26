@@ -10,6 +10,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from cv2_enumerate_cameras import enumerate_cameras
+from cv2_enumerate_cameras.camera_info import CameraInfo
 from insightface.app import FaceAnalysis
 from insightface.app.common import Face
 from insightface.model_zoo import get_model
@@ -22,9 +24,8 @@ SWAPPER_URL = "https://huggingface.co/hacksider/deep-live-cam/resolve/main/inswa
 SOURCE_PHOTO: Path | None = None
 WARMUP_FRAMES = 20  # the first webcam frames are dark while auto-exposure settles
 FACE_TTL = 10  # seconds; one webcam shot covers a whole multi-photo upload
-# OpenCV camera indexes to try. A nearby iPhone (Continuity Camera) can take index 0,
-# so we try each and move the first one that sees a face to the front.
-camera_order = [0, 1, 2]
+# Camera names to skip: a nearby iPhone shows up as a camera too (Continuity Camera).
+PHONE_CAMERA_WORDS = ("iphone", "ipad", "desk view")
 PROVIDERS = ["CPUExecutionProvider"]
 
 if not SWAPPER.exists():
@@ -45,23 +46,27 @@ def current_face(save_dir: Path) -> Face | None:
     taken_at, source = _cache
     if time.time() - taken_at > FACE_TTL:
         source = None
-        for index in list(camera_order):
-            shot = snap_webcam(index)
-            if shot is None:
-                continue
-            shot.save(save_dir / f"{datetime.now():%Y%m%d-%H%M%S-%f}_webcam{index}.jpg")
+        camera = computer_camera()
+        shot = snap_webcam(camera) if camera is not None else None
+        if shot:
+            shot.save(save_dir / f"{datetime.now():%Y%m%d-%H%M%S-%f}_webcam.jpg")
             source = biggest_face(shot)
-            if source is not None:
-                camera_order.remove(index)
-                camera_order.insert(0, index)
-                break
-        print("webcam:", f"face found on camera {camera_order[0]}" if source else "no face on any camera")
+        print("webcam:", "no computer camera" if shot is None else "face found" if source else "no face")
         _cache = (time.time(), source)
     return source
 
 
-def snap_webcam(index: int) -> Image.Image | None:
-    cam = cv2.VideoCapture(index)
+def computer_camera() -> CameraInfo | None:
+    """The computer's own camera, never a phone's."""
+    return next(
+        (cam for cam in enumerate_cameras(cv2.CAP_AVFOUNDATION)
+         if not any(word in cam.name.lower() for word in PHONE_CAMERA_WORDS)),
+        None,
+    )
+
+
+def snap_webcam(camera: CameraInfo) -> Image.Image | None:
+    cam = cv2.VideoCapture(camera.index, camera.backend)
     try:
         ok, frame = False, None
         for _ in range(WARMUP_FRAMES):

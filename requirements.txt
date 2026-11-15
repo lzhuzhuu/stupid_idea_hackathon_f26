@@ -4,3 +4,4 @@ ultralytics
 insightface==0.7.3
 onnxruntime
 pillow-heif
+cv2_enumerate_cameras
