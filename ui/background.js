@@ -25,6 +25,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true; // keep the channel open for the async reply
 });
 
+// After the extension is installed or reloaded, tabs that were already open still run the old
+// content.js, which can't reach the extension any more. Give them a fresh one, so uploads there
+// work without refreshing the page. (main_world.js lives in the page itself and keeps working.)
+chrome.runtime.onInstalled.addListener(async () => {
+  const [{ matches }] = chrome.runtime.getManifest().content_scripts;
+  for (const tab of await chrome.tabs.query({ url: matches })) {
+    chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["content.js"] })
+      .catch(() => {}); // e.g. a tab still loading, or a Chrome error page
+  }
+});
+
 // "ON" on the toolbar icon while the popup's switch is on: blue for Everyone Is You, brown for Potato.
 function showBadge({ enabled = false, feature = "everyone" }) {
   chrome.action.setBadgeText({ text: enabled ? "ON" : "" });

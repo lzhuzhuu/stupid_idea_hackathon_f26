@@ -14,10 +14,13 @@ chrome.storage.onChanged.addListener((changes) => {
 });
 
 const hasImages = (files) => files.some((f) => f.type.startsWith("image/"));
+// False in a copy of this script left behind by an extension reload: it can't reach the extension
+// any more, so it steps aside and lets the fresh copy background.js injects do the work.
+const connected = () => Boolean(chrome.runtime?.id);
 
 const isImageInput = (target) =>
   target instanceof HTMLInputElement && target.type === "file" && hasImages([...(target.files ?? [])]);
-const shouldIntercept = (target) => enabled && !replaying && isImageInput(target);
+const shouldIntercept = (target) => enabled && !replaying && connected() && isImageInput(target);
 
 // The page gets "input" right before "change"; hold both back and replay them later.
 window.addEventListener("input", (e) => {
@@ -42,7 +45,7 @@ window.addEventListener("change", async (e) => {
 // Dropped and pasted files can only be read during the event, so copy them out first.
 window.addEventListener("drop", async (e) => {
   const files = [...(e.dataTransfer?.files ?? [])];
-  if (!enabled || replaying || !hasImages(files)) return;
+  if (!enabled || replaying || !connected() || !hasImages(files)) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const { target, clientX, clientY } = e;
@@ -58,7 +61,7 @@ window.addEventListener("drop", async (e) => {
 
 window.addEventListener("paste", async (e) => {
   const files = [...(e.clipboardData?.files ?? [])];
-  if (!enabled || replaying || !hasImages(files)) return;
+  if (!enabled || replaying || !connected() || !hasImages(files)) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const { target } = e;
@@ -107,7 +110,8 @@ async function swapped(files, how) {
   } catch (err) {
     // Most often the extension was reloaded under this page ("Extension context invalidated").
     // Never swallow the upload: hand the page its originals.
-    console.warn("[potato] could not swap, sending the originals:", err);
+    // info, not warn: it's handled (the originals go through), so it's no error in chrome://extensions
+    console.info("[potato] could not swap, sending the originals:", err);
     toast(String(err).includes("context invalidated")
       ? "Potato Upload was reloaded: refresh this page"
       : "could not swap faces, original photo sent");
@@ -166,7 +170,7 @@ async function potatoify(file) {
     const bytes = Uint8Array.from(atob(res.image.split(",")[1]), (c) => c.charCodeAt(0));
     return new File([bytes], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
   } catch (err) {
-    console.warn("[potato] upload passed through untouched:", err);
+    console.info("[potato] upload passed through untouched:", err); // e.g. server not running
     toast("server offline, original photo sent");
     return file;
   }
