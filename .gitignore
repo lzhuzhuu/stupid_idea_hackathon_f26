@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# YOLO weights (downloaded on first run)
+*.pt
+
+# Generated photos (contain webcam shots of us) and downloaded face model
+server/output/
+server/models/
+
+.DS_Store
