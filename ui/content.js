@@ -14,13 +14,10 @@ chrome.storage.onChanged.addListener((changes) => {
 });
 
 const hasImages = (files) => files.some((f) => f.type.startsWith("image/"));
-// False in a copy of this script left behind by an extension reload: it can't reach the extension
-// any more, so it steps aside and lets the fresh copy background.js injects do the work.
-const connected = () => Boolean(chrome.runtime?.id);
 
 const isImageInput = (target) =>
   target instanceof HTMLInputElement && target.type === "file" && hasImages([...(target.files ?? [])]);
-const shouldIntercept = (target) => enabled && !replaying && connected() && isImageInput(target);
+const shouldIntercept = (target) => enabled && !replaying && isImageInput(target);
 
 // The page gets "input" right before "change"; hold both back and replay them later.
 window.addEventListener("input", (e) => {
@@ -45,7 +42,7 @@ window.addEventListener("change", async (e) => {
 // Dropped and pasted files can only be read during the event, so copy them out first.
 window.addEventListener("drop", async (e) => {
   const files = [...(e.dataTransfer?.files ?? [])];
-  if (!enabled || replaying || !connected() || !hasImages(files)) return;
+  if (!enabled || replaying || !hasImages(files)) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const { target, clientX, clientY } = e;
@@ -61,7 +58,7 @@ window.addEventListener("drop", async (e) => {
 
 window.addEventListener("paste", async (e) => {
   const files = [...(e.clipboardData?.files ?? [])];
-  if (!enabled || replaying || !connected() || !hasImages(files)) return;
+  if (!enabled || replaying || !hasImages(files)) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const { target } = e;

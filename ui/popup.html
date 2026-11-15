@@ -22,6 +22,7 @@
   fieldset input::after { content: none; }
   fieldset small { display: block; color: #666; font-size: 11px; }
   p { margin: 8px 0 0; color: #666; font-size: 12px; }
+  .option { margin-top: 12px; font-size: 13px; }
   section { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ddd; }
   h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #444; }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
@@ -40,6 +41,7 @@
     <span>Potato<small>every face becomes a potato wearing its own eyes, nose and mouth (port 8766)</small></span></label>
 </fieldset>
 <p id="status"></p>
+<label class="option">Hide this popup on upload <input type="checkbox" id="hide-popup"></label>
 <section id="last" hidden>
   <h2 id="last-title"></h2>
   <div id="pairs"></div>
