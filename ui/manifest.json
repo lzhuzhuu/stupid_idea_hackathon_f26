@@ -2,20 +2,20 @@
   "manifest_version": 3,
   "name": "Potato Upload",
   "version": "0.3.0",
-  "description": "Swaps every face in the photos you upload with yours.",
+  "description": "Swaps every face in the photos you upload with yours, or with a potato.",
   "action": { "default_popup": "popup.html", "default_title": "Potato Upload" },
   "permissions": ["storage"],
   "background": { "service_worker": "background.js" },
-  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "host_permissions": ["http://127.0.0.1:8765/*", "http://127.0.0.1:8766/*"],
   "content_scripts": [
     {
-      "matches": ["https://www.instagram.com/*", "https://discord.com/*", "http://127.0.0.1:8765/*"],
+      "matches": ["https://www.instagram.com/*", "https://discord.com/*", "http://127.0.0.1:8765/*", "http://127.0.0.1:8766/*"],
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
     },
     {
-      "matches": ["https://www.instagram.com/*", "https://discord.com/*", "http://127.0.0.1:8765/*"],
+      "matches": ["https://www.instagram.com/*", "https://discord.com/*", "http://127.0.0.1:8765/*", "http://127.0.0.1:8766/*"],
       "js": ["main_world.js"],
       "run_at": "document_start",
       "all_frames": true,

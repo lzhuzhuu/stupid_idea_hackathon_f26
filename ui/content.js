@@ -27,8 +27,7 @@ window.addEventListener("input", (e) => {
 window.addEventListener("change", async (e) => {
   const input = e.target;
   if (!enabled && !replaying && isImageInput(input)) {
-    console.log("[potato] saw an image upload, but the switch is off");
-    toast("Potato Upload is off: turn it on from the toolbar icon");
+    console.log("[potato] saw an image upload, but the switch is off"); // console only: off means a normal upload
     return;
   }
   if (!shouldIntercept(input)) return;
@@ -108,7 +107,8 @@ async function swapped(files, how) {
   } catch (err) {
     // Most often the extension was reloaded under this page ("Extension context invalidated").
     // Never swallow the upload: hand the page its originals.
-    console.warn("[potato] could not swap, sending the originals:", err);
+    // info, not warn: it's handled (the originals go through), so it's no error in chrome://extensions
+    console.info("[potato] could not swap, sending the originals:", err);
     toast(String(err).includes("context invalidated")
       ? "Potato Upload was reloaded: refresh this page"
       : "could not swap faces, original photo sent");
@@ -167,7 +167,7 @@ async function potatoify(file) {
     const bytes = Uint8Array.from(atob(res.image.split(",")[1]), (c) => c.charCodeAt(0));
     return new File([bytes], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
   } catch (err) {
-    console.warn("[potato] upload passed through untouched:", err);
+    console.info("[potato] upload passed through untouched:", err); // e.g. server not running
     toast("server offline, original photo sent");
     return file;
   }
@@ -186,7 +186,8 @@ function toast(text) {
   const el = Object.assign(document.createElement("div"), { textContent: text });
   el.dataset.potatoToast = "";
   el.style.cssText =
-    "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;" +
+    // pointer-events:none: clicks go through to the page (it sits over Send buttons and menus)
+    "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;" +
     "background:#8b5a2b;color:#fff;padding:10px 18px;border-radius:999px;" +
     "font:600 14px system-ui;box-shadow:0 4px 12px rgba(0,0,0,.3)";
   document.body.append(el);

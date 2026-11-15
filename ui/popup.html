@@ -14,7 +14,15 @@
   }
   input:checked { background: #1a73e8; }
   input:checked::after { left: 20px; }
+  fieldset { margin: 12px 0 0; padding: 0; border: 0; display: grid; gap: 6px; }
+  fieldset label { justify-content: flex-start; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; }
+  fieldset label:has(:checked) { border-color: #1a73e8; background: #e8f0fe; }
+  fieldset label:has([value=potato]:checked) { border-color: #8b5a2b; background: #f7ecdf; }
+  fieldset input { appearance: auto; width: auto; height: auto; background: none; }
+  fieldset input::after { content: none; }
+  fieldset small { display: block; color: #666; font-size: 11px; }
   p { margin: 8px 0 0; color: #666; font-size: 12px; }
+  .option { margin-top: 12px; font-size: 13px; }
   section { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ddd; }
   h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #444; }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
@@ -26,7 +34,14 @@
   figcaption { margin-top: 4px; color: #666; font-size: 11px; }
 </style>
 <label>Swap faces on upload <input type="checkbox" id="enabled"></label>
+<fieldset>
+  <label><input type="radio" name="feature" value="everyone">
+    <span>Everyone Is You<small>every face becomes yours (server on port 8765)</small></span></label>
+  <label><input type="radio" name="feature" value="potato">
+    <span>Potato<small>every face becomes a potato wearing its own eyes, nose and mouth (port 8766)</small></span></label>
+</fieldset>
 <p id="status"></p>
+<label class="option">Hide this popup on upload <input type="checkbox" id="hide-popup"></label>
 <section id="last" hidden>
   <h2 id="last-title"></h2>
   <div id="pairs"></div>

@@ -1,11 +1,17 @@
 const box = document.getElementById("enabled");
 const status = document.getElementById("status");
+const featureRadios = [...document.querySelectorAll("input[name=feature]")];
+const hideBox = document.getElementById("hide-popup");
+const ON_TEXT = {
+  everyone: "On: photos you upload get your face. Needs everyone_is_you/app.py running.",
+  potato: "On: faces in photos you upload become potatoes. Needs potato/app.py running.",
+};
+let feature = "everyone";
 
 function show(enabled) {
   box.checked = enabled;
-  status.textContent = enabled
-    ? "On: photos you upload get your face."
-    : "Off: uploads go through untouched.";
+  featureRadios.forEach((radio) => (radio.checked = radio.value === feature));
+  status.textContent = enabled ? ON_TEXT[feature] : "Off: uploads go through untouched.";
 }
 
 // The last intercepted upload: what was picked, and what the page got instead.
@@ -31,10 +37,15 @@ function figure(src, caption, placeholder) {
   return fig;
 }
 
-chrome.storage.local.get(["enabled", "lastUpload"]).then(({ enabled = false, lastUpload }) => {
-  show(enabled);
-  showUpload(lastUpload);
-});
+chrome.storage.local.get(["enabled", "feature", "lastUpload", "hidePopup"])
+  .then(({ enabled = false, feature: saved, lastUpload, hidePopup = false }) => {
+    feature = saved ?? "everyone";
+    show(enabled);
+    showUpload(lastUpload);
+    hideBox.checked = hidePopup;
+  });
+// The swap still happens; this popup just stops opening by itself (click the icon to see it).
+hideBox.addEventListener("change", () => chrome.storage.local.set({ hidePopup: hideBox.checked }));
 chrome.storage.onChanged.addListener((changes) => {
   if ("lastUpload" in changes) showUpload(changes.lastUpload.newValue);
 });
@@ -42,3 +53,8 @@ box.addEventListener("change", () => {
   chrome.storage.local.set({ enabled: box.checked });
   show(box.checked);
 });
+featureRadios.forEach((radio) => radio.addEventListener("change", () => {
+  feature = radio.value;
+  chrome.storage.local.set({ feature });
+  show(box.checked);
+}));
