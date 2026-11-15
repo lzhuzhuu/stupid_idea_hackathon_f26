@@ -47,7 +47,11 @@ window.addEventListener("drop", async (e) => {
   e.preventDefault();
   e.stopImmediatePropagation();
   const { target, clientX, clientY } = e;
+  // Let the page close its "drop here" overlay; the files arrive once they're swapped.
+  target.dispatchEvent(new DragEvent("dragleave", { bubbles: true, composed: true, clientX, clientY }));
   const dataTransfer = await swapped(files, "drop");
+  // Drop zones close while we swap (Discord's does), so prefer the page's own file input.
+  if (attachViaFileInput(dataTransfer.files)) return;
   replay(() => target.dispatchEvent(new DragEvent("drop", {
     bubbles: true, cancelable: true, composed: true, clientX, clientY, dataTransfer,
   })));
@@ -60,10 +64,27 @@ window.addEventListener("paste", async (e) => {
   e.stopImmediatePropagation();
   const { target } = e;
   const clipboardData = await swapped(files, "paste");
-  replay(() => target.dispatchEvent(new ClipboardEvent("paste", {
-    bubbles: true, cancelable: true, composed: true, clipboardData,
-  })));
+  let handled = false;
+  replay(() => {
+    handled = !target.dispatchEvent(new ClipboardEvent("paste", {
+      bubbles: true, cancelable: true, composed: true, clipboardData,
+    }));
+  });
+  if (!handled) attachViaFileInput(clipboardData.files);
 }, true);
+
+// Hand files to the page's file input, as if they were picked by hand. False if there's none.
+function attachViaFileInput(files) {
+  const input = document.querySelector("input[type=file]");
+  if (!input) return false;
+  console.log("[potato] attaching through the page's file input");
+  input.files = files;
+  replay(() => {
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  return true;
+}
 
 async function swapped(files, how) {
   console.log(`[potato] intercepted ${how}:`, files.map((f) => f.name));
