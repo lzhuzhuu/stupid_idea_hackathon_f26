@@ -1,14 +1,19 @@
-// Catches <input type="file"> uploads before the page sees them, swaps every
-// image for its potatoified version, then replays the events to the page.
+// Catches image uploads before the page sees them (file pickers, drag and drop, paste),
+// swaps every image for its face-swapped version, then replays the events to the page.
 let replaying = false;
 let busy = 0;
 let heldForm = null;
 let enabled = false; // the popup's switch; off until the user turns it on
 
-chrome.storage.local.get("enabled").then((saved) => { enabled = saved.enabled ?? false; });
+chrome.storage.local.get("enabled").then((saved) => {
+  enabled = saved.enabled ?? false;
+  console.log(`[potato] loaded on ${location.host}, switch is ${enabled ? "on" : "off"}`);
+});
 chrome.storage.onChanged.addListener((changes) => {
   if ("enabled" in changes) enabled = changes.enabled.newValue;
 });
+
+const hasImages = (files) => files.some((f) => f.type.startsWith("image/"));
 
 function shouldIntercept(target) {
   return (
@@ -16,7 +21,7 @@ function shouldIntercept(target) {
     !replaying &&
     target instanceof HTMLInputElement &&
     target.type === "file" &&
-    [...(target.files ?? [])].some((f) => f.type.startsWith("image/"))
+    hasImages([...(target.files ?? [])])
   );
 }
 
@@ -29,32 +34,64 @@ window.addEventListener("change", async (e) => {
   const input = e.target;
   if (!shouldIntercept(input)) return;
   e.stopImmediatePropagation();
+  input.files = (await swapped([...input.files], "file picker")).files;
+  replay(() => {
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}, true);
 
-  console.log("[potato] intercepted upload:", [...input.files].map((f) => f.name));
+// Dropped and pasted files can only be read during the event, so copy them out first.
+window.addEventListener("drop", async (e) => {
+  const files = [...(e.dataTransfer?.files ?? [])];
+  if (!enabled || replaying || !hasImages(files)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const { target, clientX, clientY } = e;
+  const dataTransfer = await swapped(files, "drop");
+  replay(() => target.dispatchEvent(new DragEvent("drop", {
+    bubbles: true, cancelable: true, composed: true, clientX, clientY, dataTransfer,
+  })));
+}, true);
+
+window.addEventListener("paste", async (e) => {
+  const files = [...(e.clipboardData?.files ?? [])];
+  if (!enabled || replaying || !hasImages(files)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const { target } = e;
+  const clipboardData = await swapped(files, "paste");
+  replay(() => target.dispatchEvent(new ClipboardEvent("paste", {
+    bubbles: true, cancelable: true, composed: true, clipboardData,
+  })));
+}, true);
+
+async function swapped(files, how) {
+  console.log(`[potato] intercepted ${how}:`, files.map((f) => f.name));
   toast("swapping faces…");
   busy++;
   try {
-    const files = await Promise.all([...input.files].map(potatoify));
     const dt = new DataTransfer();
-    files.forEach((f) => dt.items.add(f));
-    input.files = dt.files;
-
-    replaying = true;
-    try {
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    } finally {
-      replaying = false;
-    }
+    (await Promise.all(files.map(potatoify))).forEach((f) => dt.items.add(f));
+    return dt;
   } finally {
     busy--;
+  }
+}
+
+function replay(dispatch) {
+  replaying = true;
+  try {
+    dispatch();
+  } finally {
+    replaying = false;
   }
   if (!busy && heldForm) {
     const form = heldForm;
     heldForm = null;
     form.requestSubmit();
   }
-}, true);
+}
 
 // Submitting before the potatoes are ready would send the originals; wait, then submit.
 window.addEventListener("submit", (e) => {
