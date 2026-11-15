@@ -23,6 +23,7 @@ window.addEventListener("change", async (e) => {
   if (!shouldIntercept(input)) return;
   e.stopImmediatePropagation();
 
+  console.log("[potato] intercepted upload:", [...input.files].map((f) => f.name));
   toast("swapping faces…");
   busy++;
   try {

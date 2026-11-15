@@ -8,9 +8,12 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_file
 from markupsafe import escape
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
 from ultralytics import YOLO
 
 import face
+
+register_heif_opener()  # iPhone photos are often HEIC
 
 HERE = Path(__file__).parent
 ASSETS = HERE / "assets"

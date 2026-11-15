@@ -1,16 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Potato Upload",
-  "version": "0.1.0",
-  "description": "Turns the people in every photo you upload into potatoes.",
+  "version": "0.2.0",
+  "description": "Swaps every face in the photos you upload with yours.",
   "background": { "service_worker": "background.js" },
   "host_permissions": ["http://127.0.0.1:8765/*"],
   "content_scripts": [
     {
-      "matches": ["http://127.0.0.1:8765/*"],
+      "matches": ["https://www.instagram.com/*", "http://127.0.0.1:8765/*"],
       "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": ["https://www.instagram.com/*", "http://127.0.0.1:8765/*"],
+      "js": ["main_world.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
     }
   ]
 }

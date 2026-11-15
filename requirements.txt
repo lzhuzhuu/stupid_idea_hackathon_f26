@@ -3,3 +3,4 @@ pillow
 ultralytics
 insightface==0.7.3
 onnxruntime
+pillow-heif
