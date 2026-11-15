@@ -1,4 +1,5 @@
 flask
 pillow
 ultralytics
-mediapipe
+insightface==0.7.3
+onnxruntime

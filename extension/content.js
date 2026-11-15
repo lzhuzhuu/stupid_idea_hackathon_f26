@@ -23,7 +23,7 @@ window.addEventListener("change", async (e) => {
   if (!shouldIntercept(input)) return;
   e.stopImmediatePropagation();
 
-  toast("potatoifying…");
+  toast("swapping faces…");
   busy++;
   try {
     const files = await Promise.all([...input.files].map(potatoify));
