@@ -84,6 +84,16 @@ async function swapped(files, how) {
     const dt = new DataTransfer();
     results.forEach((f) => dt.items.add(f));
     return dt;
+  } catch (err) {
+    // Most often the extension was reloaded under this page ("Extension context invalidated").
+    // Never swallow the upload: hand the page its originals.
+    console.warn("[potato] could not swap, sending the originals:", err);
+    toast(String(err).includes("context invalidated")
+      ? "Potato Upload was reloaded: refresh this page"
+      : "could not swap faces, original photo sent");
+    const dt = new DataTransfer();
+    files.forEach((f) => dt.items.add(f));
+    return dt;
   } finally {
     busy--;
   }
